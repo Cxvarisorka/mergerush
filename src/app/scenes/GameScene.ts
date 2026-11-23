@@ -8,7 +8,7 @@ import { BoardView } from '../view/BoardView';
 import { HudView, type HudButton } from '../view/HudView';
 import { Panel, type PanelSpec } from '../view/Panel';
 import { COLORS } from '../view/theme';
-import { TileView } from '../view/TileView';
+import { TileView, pruneTileTextures } from '../view/TileView';
 
 export interface SceneServices {
   readonly session: Session;
@@ -21,6 +21,9 @@ type Pressed = { kind: 'hud'; id: HudButton } | { kind: 'panel'; id: string } | 
 
 export type SceneMode = 'idle' | 'previewing' | 'animating';
 
+/** After this long with nothing moving, the render loop sleeps to save battery. */
+export const IDLE_SLEEP_MS = 2000;
+
 export const HELP_PANEL: PanelSpec = {
   kind: 'help',
   title: 'How to play',
@@ -30,6 +33,7 @@ export const HELP_PANEL: PanelSpec = {
     'Where it stops it can merge again. Chains multiply your points.',
     'Hold and drag to preview a move. Release off the board to cancel.',
     'The game ends when the board is full.',
+    'Keyboard: arrow keys to choose a cell, Enter to place.',
   ],
   buttons: [{ label: 'Got it', action: 'close', primary: true }],
   backdropAction: 'close',
@@ -47,7 +51,11 @@ export class GameScene extends Phaser.Scene {
   private activePointer: number | null = null;
   private pressed: Pressed = null;
   private previewCell: number | null = null;
+  /** Keyboard cursor on the board (null until a key is used). */
+  cursorCell: number | null = null;
   ready = false;
+  private lastActivity = 0;
+  private asleep = false;
 
   constructor(protected readonly services: SceneServices) {
     super('game');
@@ -82,12 +90,53 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onPointerMove(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onPointerUp(p, false));
     this.input.on('pointerupoutside', (p: Phaser.Input.Pointer) => this.onPointerUp(p, true));
+    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => this.onKey(e));
+    // Wake the sleeping render loop on any user input (capture phase, before Phaser sees it).
+    const wake = () => this.markActive();
+    for (const type of ['pointerdown', 'touchstart', 'keydown', 'wheel']) window.addEventListener(type, wake, { capture: true, passive: true });
+    document.addEventListener('visibilitychange', wake);
+    this.events.once('destroy', () => {
+      for (const type of ['pointerdown', 'touchstart', 'keydown', 'wheel']) window.removeEventListener(type, wake, { capture: true });
+      document.removeEventListener('visibilitychange', wake);
+    });
+    this.markActive();
     this.setup();
     this.ready = true;
     this.relayout();
     this.syncAll();
     if (this.session.state.status === 'over') this.showGameOver();
     this.afterCreate();
+  }
+
+  /** Records activity and wakes the render loop if it was asleep. */
+  markActive(): void {
+    this.lastActivity = performance.now();
+    if (this.asleep) {
+      this.asleep = false;
+      this.game.loop.wake(true);
+    }
+  }
+
+  /** True while the scene is sleeping to save power (for tests). */
+  get sleeping(): boolean {
+    return this.asleep;
+  }
+
+  override update(): void {
+    const busy =
+      this.mode !== 'idle' ||
+      this.activePointer !== null ||
+      this.player.playing ||
+      this.tweens.getTweens().length > 0 ||
+      this.cameras.main.shakeEffect.isRunning;
+    if (busy) {
+      this.lastActivity = performance.now();
+      return;
+    }
+    if (performance.now() - this.lastActivity > IDLE_SLEEP_MS) {
+      this.asleep = true;
+      this.game.loop.sleep();
+    }
   }
 
   /** Extension points for later layers. */
@@ -109,6 +158,7 @@ export class GameScene extends Phaser.Scene {
 
   relayout(): void {
     if (!this.ready) return;
+    this.markActive();
     this.layoutInfo = computeLayout(this.scale.width, this.scale.height, this.services.unit(), this.services.insets());
     if (this.player.playing) this.player.skip();
     this.cancelPreview();
@@ -116,6 +166,9 @@ export class GameScene extends Phaser.Scene {
     this.hud.setLayout(this.layoutInfo);
     this.panel?.setLayout(this.layoutInfo);
     this.reconcile();
+    this.board.showCursor(this.cursorCell);
+    const L = this.layoutInfo;
+    pruneTileTextures(this, [L.cellSize, L.cellSize * 0.92, L.current.w, L.next.w]);
   }
 
   /** Makes the tile views match the engine state exactly. */
@@ -155,6 +208,11 @@ export class GameScene extends Phaser.Scene {
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
     if (this.activePointer !== null) return;
+    if (this.cursorCell !== null) {
+      this.cursorCell = null;
+      this.board.showCursor(null);
+      this.clearKeyboardPreview();
+    }
     this.activePointer = pointer.id;
     const { x, y } = pointer;
 
@@ -224,6 +282,69 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // ---- keyboard ------------------------------------------------------------------------
+
+  private onKey(e: KeyboardEvent): void {
+    const key = e.key;
+    if (this.panel) {
+      if (key === 'ArrowDown' || key === 'ArrowRight' || (key === 'Tab' && !e.shiftKey)) this.panel.moveFocus(1);
+      else if (key === 'ArrowUp' || key === 'ArrowLeft' || (key === 'Tab' && e.shiftKey)) this.panel.moveFocus(-1);
+      else if (key === 'Enter' || key === ' ') {
+        const action = this.panel.focusedAction();
+        if (action) this.handlePanelAction(action);
+      } else if (key === 'Escape') {
+        const back = this.panel.spec.backdropAction;
+        if (back) this.handlePanelAction(back);
+      } else return;
+      e.preventDefault();
+      return;
+    }
+    if (this.mode === 'animating') {
+      this.player.skip();
+      return;
+    }
+    if (this.mode === 'previewing') return; // a pointer is down
+    const size = this.layoutInfo.size;
+    const moves: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    if (moves[key]) {
+      e.preventDefault();
+      const start = this.cursorCell ?? Math.floor((size * size) / 2);
+      let row = Math.floor(start / size);
+      let col = start % size;
+      if (this.cursorCell !== null) {
+        row = Math.min(size - 1, Math.max(0, row + moves[key]![0]));
+        col = Math.min(size - 1, Math.max(0, col + moves[key]![1]));
+      }
+      this.setCursor(row * size + col);
+    } else if (key === 'Enter' || key === ' ') {
+      e.preventDefault();
+      const cell = this.cursorCell ?? Math.floor((size * size) / 2);
+      if (this.cursorCell === null) this.setCursor(cell);
+      else if (this.session.state.status === 'playing' && this.session.state.board[cell] === null) {
+        this.clearKeyboardPreview();
+        void this.commit(cell).then(() => this.setCursor(this.cursorCell));
+      } else this.onInvalidTap(cell);
+    } else if (key === 'Escape') {
+      this.setCursor(null);
+    } else if (key === 'r' || key === 'R') this.handleHud('restart');
+    else if (key === 'h' || key === 'H' || key === '?') this.handleHud('help');
+    else if ((key === 's' || key === 'S') && this.hasSettings()) this.handleHud('settings');
+  }
+
+  private setCursor(cell: number | null): void {
+    this.cursorCell = cell;
+    this.board.showCursor(cell);
+    if (cell !== null && this.session.state.status === 'playing' && this.session.state.board[cell] === null) this.setPreview(cell);
+    else this.setPreview(null);
+  }
+
+  private clearKeyboardPreview(): void {
+    this.previewCell = null;
+    this.board.clearPreview();
+    for (const v of this.tiles.values()) v.setAlpha(1);
+    this.hud.currentTile?.setAlpha(1);
+  }
+
   private setPreview(cell: number | null): void {
     this.previewCell = cell;
     for (const v of this.tiles.values()) v.setAlpha(1);
@@ -264,12 +385,13 @@ export class GameScene extends Phaser.Scene {
     this.hud.setQueue(this.session.state.queue);
     this.updateScore();
     this.mode = 'idle';
+    this.markActive();
     this.onMoveFinished(result.events, before);
     if (this.session.state.status === 'over') this.showGameOver();
     return result;
   }
 
-  private handleHud(button: HudButton): void {
+  protected handleHud(button: HudButton): void {
     if (button === 'help') this.openPanel(HELP_PANEL);
     else if (button === 'settings') this.onSettings();
     else if (button === 'restart') {
@@ -296,6 +418,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   openPanel(spec: PanelSpec): void {
+    this.markActive();
     this.closePanel();
     this.cancelPreview();
     this.panel = new Panel(this, spec);
@@ -303,11 +426,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   closePanel(): void {
+    const had = this.panel !== null;
     this.panel?.destroy();
     this.panel = null;
+    if (had && this.cursorCell !== null && this.ready) this.setCursor(this.cursorCell);
   }
 
   newGame(seed?: number): void {
+    this.markActive();
     this.closePanel();
     if (this.player.playing) this.player.skip();
     this.session.newGame(seed);
@@ -319,6 +445,7 @@ export class GameScene extends Phaser.Scene {
       v.setScale(0.3);
       this.tweens.add({ targets: v, scale: 1, duration: 220, ease: 'Back.Out' });
     }
+    if (this.cursorCell !== null) this.setCursor(this.cursorCell);
     this.onNewGame();
   }
 

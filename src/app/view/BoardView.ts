@@ -6,15 +6,17 @@ import { TileView, drawSlot } from './TileView';
 
 /** Board background, empty slots and the move preview. Tiles are owned by the scene. */
 export class BoardView {
-  private readonly bg: Phaser.GameObjects.Graphics;
+  private bg: Phaser.GameObjects.Image | null = null;
+  private bgKey = '';
   private readonly path: Phaser.GameObjects.Graphics;
+  private readonly cursor: Phaser.GameObjects.Graphics;
   private ghosts: TileView[] = [];
   private pointsText: Phaser.GameObjects.Text;
   private layout!: Layout;
 
   constructor(private readonly scene: Phaser.Scene) {
-    this.bg = scene.add.graphics().setDepth(0);
     this.path = scene.add.graphics().setDepth(5);
+    this.cursor = scene.add.graphics().setDepth(20);
     this.pointsText = scene.add
       .text(0, 0, '', { fontFamily: FONT_FAMILY, fontStyle: 'bold', color: toCss(COLORS.accent) })
       .setOrigin(0.5, 1)
@@ -25,13 +27,26 @@ export class BoardView {
   setLayout(layout: Layout): void {
     this.layout = layout;
     const { board } = layout;
-    this.bg.clear();
-    this.bg.fillStyle(COLORS.board, 1);
-    this.bg.fillRoundedRect(board.x, board.y, board.w, board.h, layout.cellSize * 0.2);
-    for (let i = 0; i < layout.size * layout.size; i++) {
-      const r = cellRect(layout, i);
-      drawSlot(this.bg, r.x, r.y, r.w);
+    // The board and its slots never change between resizes: draw them once into a texture.
+    const w = Math.max(2, Math.ceil(board.w));
+    const key = `board-${w}`;
+    if (key !== this.bgKey) {
+      const g = this.scene.make.graphics({ x: 0, y: 0 }, false);
+      g.fillStyle(COLORS.board, 1);
+      g.fillRoundedRect(0, 0, board.w, board.h, layout.cellSize * 0.2);
+      for (let i = 0; i < layout.size * layout.size; i++) {
+        const r = cellRect(layout, i);
+        drawSlot(g, r.x - board.x, r.y - board.y, r.w);
+      }
+      if (this.scene.textures.exists(key)) this.scene.textures.remove(key);
+      g.generateTexture(key, w, w);
+      g.destroy();
+      this.bg?.destroy();
+      if (this.bgKey && this.scene.textures.exists(this.bgKey)) this.scene.textures.remove(this.bgKey);
+      this.bg = this.scene.add.image(0, 0, key).setOrigin(0, 0).setDepth(0);
+      this.bgKey = key;
     }
+    this.bg!.setPosition(board.x, board.y);
   }
 
   /**
@@ -87,6 +102,17 @@ export class BoardView {
       .setFontSize(Math.round(side * 0.3))
       .setPosition(end.x, r.y - w * 1.5)
       .setVisible(true);
+  }
+
+  /** Keyboard cursor outline (null hides it). */
+  showCursor(cell: number | null): void {
+    this.cursor.clear();
+    if (cell === null) return;
+    const L = this.layout;
+    const r = cellRect(L, cell);
+    const w = Math.max(2, L.cellSize * 0.05);
+    this.cursor.lineStyle(w, COLORS.text, 1);
+    this.cursor.strokeRoundedRect(r.x - w, r.y - w, r.w + 2 * w, r.h + 2 * w, L.cellSize * 0.2);
   }
 
   clearPreview(): void {

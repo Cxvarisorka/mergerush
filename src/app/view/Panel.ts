@@ -35,6 +35,7 @@ export class Panel {
   private buttons: ButtonRect[] = [];
   private box = { x: 0, y: 0, w: 0, h: 0 };
   private pressed: string | null = null;
+  private focus = -1;
   private layout!: Layout;
 
   constructor(
@@ -103,6 +104,22 @@ export class Panel {
     this.redraw();
   }
 
+  /** Keyboard focus: moves by `delta` (wrapping); starts on the primary button. */
+  moveFocus(delta: number): void {
+    const n = this.buttons.length;
+    if (n === 0) return;
+    // Before any key press the primary button is the implicit focus; move from there.
+    const from = this.focus >= 0 ? this.focus : Math.max(0, this.buttons.findIndex((b) => b.primary));
+    this.focus = (from + delta + n) % n;
+    this.redraw();
+  }
+
+  /** The focused action, or the primary one if focus was never moved. */
+  focusedAction(): string | null {
+    const b = this.focus >= 0 ? this.buttons[this.focus] : (this.buttons.find((x) => x.primary) ?? this.buttons[0]);
+    return b?.action ?? null;
+  }
+
   /** Button rectangles (for tests). */
   buttonRects(): ReadonlyArray<{ action: string; x: number; y: number; w: number; h: number }> {
     return this.buttons.map(({ action, x, y, w, h }) => ({ action, x, y, w, h }));
@@ -128,6 +145,10 @@ export class Panel {
       const base = b.primary ? COLORS.accent : COLORS.button;
       g.fillStyle(this.pressed === b.action ? (b.primary ? 0xe6b84f : COLORS.buttonPressed) : base, 1);
       g.fillRoundedRect(b.x, b.y, b.w, b.h, 12 * u);
+      if (this.buttons[this.focus] === b) {
+        g.lineStyle(3 * u, COLORS.text, 1);
+        g.strokeRoundedRect(b.x - 4 * u, b.y - 4 * u, b.w + 8 * u, b.h + 8 * u, 14 * u);
+      }
     }
   }
 }
