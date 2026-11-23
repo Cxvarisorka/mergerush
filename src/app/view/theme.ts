@@ -23,9 +23,9 @@ const TILE_COLORS: readonly number[] = [
   0xffa94d, // 8
   0xff7a59, // 16
   0xff5370, // 32
-  0xe0457b, // 64
-  0xb44bd6, // 128
-  0x7c5cff, // 256
+  0xc8336a, // 64
+  0xa23cc4, // 128
+  0x6a4ef0, // 256
   0x3366e0, // 512
   0x1f9bb8, // 1024
   0x2fbf71, // 2048
@@ -74,10 +74,10 @@ export function tileFontScale(value: number): number {
 }
 
 export const TIMING = {
-  place: 110,
-  mergeMove: 90,
-  slidePerCell: 55,
-  pop: 120,
+  place: 90,
+  mergeMove: 80,
+  slidePerCell: 40,
+  pop: 110,
   /** Upper bound for a whole move's playback. */
   maxMove: 1200,
 } as const;

@@ -48,10 +48,35 @@ export class HudView {
     this.setQueue(this.queue, true);
   }
 
-  setScore(score: number, best: number): void {
+  private counter: Phaser.Tweens.Tween | null = null;
+  private shownScore = 0;
+
+  /** Sets score and best; with `animate`, the score counts up. */
+  setScore(score: number, best: number, animate = false): void {
     this.scoreValue = score;
-    this.texts.score.setText(String(score));
     this.texts.best.setText(String(best));
+    this.counter?.stop();
+    this.counter = null;
+    if (!animate || score <= this.shownScore) {
+      this.shownScore = score;
+      this.texts.score.setText(String(score));
+      return;
+    }
+    const from = { v: this.shownScore };
+    this.counter = this.scene.tweens.add({
+      targets: from,
+      v: score,
+      duration: 260,
+      ease: 'Quad.Out',
+      onUpdate: () => {
+        this.shownScore = Math.round(from.v);
+        this.texts.score.setText(String(this.shownScore));
+      },
+      onComplete: () => {
+        this.shownScore = score;
+        this.texts.score.setText(String(score));
+      },
+    });
   }
 
   setQueue(queue: ReadonlyArray<number>, force = false): void {

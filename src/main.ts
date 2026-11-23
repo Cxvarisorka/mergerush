@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import type { Insets } from './app/layout';
-import { GameScene } from './app/scenes/GameScene';
+import { MergeRushScene } from './app/scenes/MergeRushScene';
+import { SettingsStore, defaultSettings } from './app/feel/settings';
+import { WebVibrationHaptics, switchable } from './platform/haptics';
 import { Session } from './app/session';
 import { LocalStorageStore } from './platform/storage';
 import { installTestHook } from './app/testHook';
@@ -20,14 +22,22 @@ function readInsets(): Insets {
 }
 
 async function start(): Promise<void> {
-  const session = new Session(new LocalStorageStore());
-  await session.load();
+  const store = new LocalStorageStore();
+  const session = new Session(store);
+  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const settings = new SettingsStore(store, defaultSettings(prefersReducedMotion));
+  await Promise.all([session.load(), settings.load()]);
+  const haptics = switchable(new WebVibrationHaptics(), () => settings.value.haptics);
+  const announcer = document.getElementById('announcer');
+  const announce = (text: string) => {
+    if (announcer) announcer.textContent = text;
+  };
 
   const parent = document.getElementById('game')!;
   let pixelRatio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
   const size = () => ({ w: Math.max(1, parent.clientWidth), h: Math.max(1, parent.clientHeight) });
 
-  const scene = new GameScene({ session, unit: () => pixelRatio, insets: readInsets });
+  const scene = new MergeRushScene({ session, settings, haptics, announce, unit: () => pixelRatio, insets: readInsets });
   const initial = size();
   // Phaser 3 has no high-DPI setting: render at device resolution and zoom the canvas back down.
   const game = new Phaser.Game({

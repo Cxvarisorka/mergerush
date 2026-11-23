@@ -86,3 +86,18 @@ default. Exceptions and later findings are recorded here as they happen.
 - Q4/Q5: Phase 1 simulations met every proposed balance target with the fixed spawn table
   (random bot median 68 moves; greedy/random median score 21.6×; 100 % of greedy games end;
   19–24 % of moves chain), so the fixed table is kept for v1.
+- Q8: endless play; a banner celebrates each new highest tile from 128 up, once per game.
+- Q17: the tutorial is a "How to play" panel shown on first launch and reachable from the
+  `?` button, not the scripted three-move tutorial. Simpler, and playtests can still ask
+  for the interactive version.
+- Q18: press-drag-release with on-board preview; a quick tap commits immediately.
+- Q21: sounds are synthesized with the Web Audio API at runtime (no audio files, nothing to
+  license or download). Pitch rises with chain position.
+- Q22: generated shapes and the platform's system font; no bundled font file.
+- Architecture deviation: there is no separate `BootScene`. The only generated texture (a
+  particle dot) is made when the scene starts. `GameScene` holds the core loop and
+  `MergeRushScene` adds feedback (sound, haptics, particles, settings, help).
+- Accessibility finding (Phase 3 tests): tiles 64, 128 and 256 originally missed 4.5:1 text
+  contrast; their colours were darkened and every tile value up to 131072 is now tested.
+- Timing finding (Phase 3 tests): a one-merge move with a 3-cell slide took 485 ms against
+  the 400 ms target; durations were shortened and the target is now a test.

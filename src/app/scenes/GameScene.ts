@@ -258,6 +258,7 @@ export class GameScene extends Phaser.Scene {
     const result = this.session.play(cell);
     if (!result.ok) return result;
     this.mode = 'animating';
+    this.hud.setScore(before.score, Math.max(this.session.bestAtStart, before.score));
     await this.player.play(result.events);
     this.reconcile();
     this.hud.setQueue(this.session.state.queue);
