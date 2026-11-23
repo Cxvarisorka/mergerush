@@ -74,3 +74,15 @@ These were assumed in order to write a concrete plan. Correct any that are wrong
 4. Any performance, bundle-size or device-behaviour figure. Nothing has been built or run.
 5. Whether the proposed rules are fun or balanced. That needs the Phase 1 simulations and
    the Phase 2 playtest.
+
+## G. Decisions taken (2026-11-23)
+
+The plan was approved as written, so every question was answered with its recommended
+default. Exceptions and later findings are recorded here as they happen.
+
+- Q1–Q7, Q15: recommended defaults.
+- Q20: TypeScript 7.0.2 works with Vite 8.3.8 and Vitest 5.1.1 for this project; no
+  fallback needed.
+- Q4/Q5: Phase 1 simulations met every proposed balance target with the fixed spawn table
+  (random bot median 68 moves; greedy/random median score 21.6×; 100 % of greedy games end;
+  19–24 % of moves chain), so the fixed table is kept for v1.
