@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 import type { Insets } from './app/layout';
 import { MergeRushScene } from './app/scenes/MergeRushScene';
 import { SettingsStore, defaultSettings } from './app/feel/settings';
-import { WebVibrationHaptics, switchable } from './platform/haptics';
+import { switchable } from './platform/haptics';
+import { createPlatform } from './platform';
 import { Session } from './app/session';
-import { LocalStorageStore } from './platform/storage';
 import { installTestHook } from './app/testHook';
 
 const MAX_PIXEL_RATIO = 3;
@@ -22,12 +22,14 @@ function readInsets(): Insets {
 }
 
 async function start(): Promise<void> {
-  const store = new LocalStorageStore();
+  // Web: localStorage + Vibration API. Native (Capacitor): Preferences + native haptics.
+  const platform = createPlatform();
+  const store = platform.store;
   const session = new Session(store);
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   const settings = new SettingsStore(store, defaultSettings(prefersReducedMotion));
   await Promise.all([session.load(), settings.load()]);
-  const haptics = switchable(new WebVibrationHaptics(), () => settings.value.haptics);
+  const haptics = switchable(platform.haptics, () => settings.value.haptics);
   const announcer = document.getElementById('announcer');
   const announce = (text: string) => {
     if (announcer) announcer.textContent = text;
@@ -67,6 +69,7 @@ async function start(): Promise<void> {
       scene.relayout();
     });
   };
+  platform.onBackButton(() => scene.handleBack());
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', onResize);
   window.visualViewport?.addEventListener('resize', onResize);

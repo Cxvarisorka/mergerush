@@ -9,10 +9,10 @@ on a physical phone.
 | Command | Result |
 |---|---|
 | `npm run typecheck` | passes (app + tests, and the engine alone without DOM types) |
-| `npm test` | 172 tests in 14 files pass |
+| `npm test` | 177 tests in 15 files pass (incl. native glue tests with mocked Capacitor) |
 | `npm run test:coverage` | engine coverage 100 % statements, branches, functions, lines |
 | `npm run build` | passes; one JS chunk of 1,235 kB (329 kB gzipped), almost all Phaser |
-| `npm run test:e2e` | 95 passed, 0 failed, 20 skipped by design, 12.0 min with 2 workers |
+| `npm run test:e2e` | 95 passed, 0 failed, 20 skipped by design, about 12 min with 2 workers (re-run after Capacitor integration: same result) |
 
 ## End-to-end device matrix
 

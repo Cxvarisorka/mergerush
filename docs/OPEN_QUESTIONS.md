@@ -101,3 +101,18 @@ default. Exceptions and later findings are recorded here as they happen.
   contrast; their colours were darkened and every tile value up to 131072 is now tested.
 - Timing finding (Phase 3 tests): a one-merge move with a 3-cell slide took 485 ms against
   the 400 ms target; durations were shortened and the target is now a test.
+- Q11: Phaser 3.90.0 (exact pin), as briefed. High-DPI is handled by rendering at device
+  pixel ratio (capped at 3) and zooming the canvas down.
+- Q12: no physical devices were available; e2e runs on emulated profiles in Chromium only.
+- Q13: portrait and landscape both supported on the web; native phones locked to portrait
+  (iPad keeps all orientations).
+- Q14: the web build is a development and test target; no service worker.
+- Q16: aria-live announcements and full keyboard play; no screen-reader board navigation.
+- Q19: a GitHub Actions workflow runs typecheck, coverage, build and e2e.
+- Q24: placeholder app id `com.mergerush.game` until the owner picks one.
+- Performance finding (Phase 4): the scene redrew a static board at 60 fps and drew every
+  rounded rectangle as vector shapes each frame. Tiles and board are now cached textures
+  and the render loop sleeps when idle.
+- Android build blocker: the Android SDK can only be installed after its license
+  agreement is accepted, which is the owner's decision. The automated attempt to accept it
+  was refused, so no APK has been built here.

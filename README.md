@@ -20,6 +20,16 @@ Requires Node.js 22.12 or newer.
 | `npm test` | unit, invariant, golden-replay and simulation tests |
 | `npm run test:coverage` | tests with engine coverage (threshold 95 %) |
 | `npm run sim` | balancing simulation report |
+| `npm run test:e2e` | Playwright end-to-end tests on emulated phones, tablet and desktop |
+| `npm run test:all` | typecheck, unit tests and end-to-end tests |
+| `npm run cap:sync` | build the web app and copy it into the Android and iOS projects |
+| `npm run android:build` | debug APK (needs the Android SDK) |
+| `npx cap open android` / `npx cap open ios` | open the native project in Android Studio / Xcode |
+
+## How to play
+
+Tap an empty cell to place the tile shown under PLACE. Hold and drag to preview where it
+will go; release off the board to cancel. On a keyboard: arrow keys and Enter.
 
 ## Engine
 
@@ -43,6 +53,22 @@ Golden replays in `tests/engine/golden/` change only when the rules change on pu
 UPDATE_GOLDEN=1 npx vitest run tests/engine/golden.test.ts
 ```
 
+## Project layout
+
+```
+src/engine/     pure deterministic rules (no Phaser, no DOM)
+src/app/        Phaser scene, views, input, playback, session, layout
+src/platform/   storage and haptics for web (localStorage, Vibration API) and native (Capacitor)
+tests/          unit, invariant, golden, simulation (Vitest) and e2e (Playwright) tests
+android/, ios/  Capacitor native projects
+docs/           plan, design, architecture, testing, test report, release checklist
+```
+
 ## Documentation
 
-See [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) for the roadmap and phase status.
+- [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md): roadmap and phase status
+- [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md): rules
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): technical design
+- [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md): what was tested and the results
+- [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md): native builds and store release
+- [`docs/OPEN_QUESTIONS.md`](docs/OPEN_QUESTIONS.md): decisions taken and still open

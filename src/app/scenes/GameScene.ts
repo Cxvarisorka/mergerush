@@ -417,6 +417,16 @@ export class GameScene extends Phaser.Scene {
     else if (action === 'new-game') this.newGame();
   }
 
+  /** Android back button: closes a dismissible panel. Returns false when there was nothing to close. */
+  handleBack(): boolean {
+    this.markActive();
+    if (!this.panel) return false;
+    const back = this.panel.spec.backdropAction;
+    if (!back) return false;
+    this.handlePanelAction(back);
+    return true;
+  }
+
   openPanel(spec: PanelSpec): void {
     this.markActive();
     this.closePanel();

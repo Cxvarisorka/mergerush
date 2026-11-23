@@ -1,12 +1,24 @@
 # Merge Rush — Master Plan
 
-Date: 2026-11-23. Status: **planning complete, awaiting approval. No application code has
-been written.**
+Date: 2026-11-23. Status: **Phases 1–4 complete; Phase 5 integrated but native builds not
+yet produced.** See section 0.
 
 Companion documents: `GAME_DESIGN.md` (rules), `ARCHITECTURE.md` (technical design and
 verified facts), `TESTING_STRATEGY.md`, `PHASE_1_PLAN.md`, `OPEN_QUESTIONS.md`.
 
-## 1. Where the project stands
+## 0. Implementation status
+
+| Phase | Status | Evidence |
+|---|---|---|
+| 1. Engine | Done | 100 % engine coverage; 1,000-game invariants; golden replays; simulations met every balance target |
+| 2. Playable game | Done | Played through to game over on emulated Android and iPhone profiles |
+| 3. Game feel | Done | Effects, sound, haptics, settings, help; contrast and timing targets unit-tested |
+| 4. Quality assurance | Done | 95 e2e tests pass on 5 emulated device profiles (Chromium); see `TEST_REPORT.md` |
+| 5. Mobile packaging | Partly done | Capacitor, native projects, plugins and native glue tests in place; **no APK/IPA built or run** — see `RELEASE_CHECKLIST.md` |
+
+Deviations from this plan are recorded in `OPEN_QUESTIONS.md` section G.
+
+## 1. Where the project stood before implementation
 
 - The repository is empty: no commits, no files, no remote branches. Everything is new.
 - Local toolchain: Node 22.23.5, npm 10.9.9, which satisfies current Vite 8, Vitest 5 and
